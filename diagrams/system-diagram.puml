@@ -1,0 +1,72 @@
+@startuml
+title GIC Cinema Booking System — System Diagram
+
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor #555
+  RoundCorner 12
+}
+skinparam packageStyle rect
+skinparam shadowing false
+skinparam ArrowColor #555
+skinparam defaultTextAlignment center
+
+left to right direction
+
+' Actors
+actor "User" as User
+
+' Frontend (CLI)
+rectangle "CLI Frontend (Java)\n- Console UI\n- Input validation (basic)\n- Calls REST API" as CLI #e8f1ff
+
+' Backend (Spring)
+package "Backend API (Spring Boot)" as BE {
+  [REST Controllers\n- BookingController\n- SeatMapController] as Controllers #eef8ee
+  [Services\n- BookingService\n- SeatMapService\n- ValidationService] as Services #eef8ee
+  [Repositories\n- BookingRepository\n- SeatRepository] as Repos #eef8ee
+}
+
+' Database
+database "Database\n(H2 / PostgreSQL)" as DB #fff3e0
+
+' Optional integrations (comment out if not used)
+rectangle "Payment Gateway (Optional)\n- Card charge\n- Refunds" as Pay #fff0f3
+rectangle "Logging / Monitoring (Optional)\n- Logback\n- Prometheus endpoint" as Mon #f5f5f5
+
+' Relationships
+User --> CLI : Inputs/commands\n(title, rows, seats)
+CLI --> Controllers : HTTP (localhost)\nPOST /bookings\nGET /seats\nGET /bookings/{id}
+Controllers --> Services : Method calls
+Services --> Repos : CRUD ops
+Repos --> DB : SQL queries
+
+' Optional flows
+Services ..> Pay : Charge/cancel (optional)
+BE ..> Mon : /actuator/prometheus (optional)
+
+' Boundaries / notes
+package "Modules (Gradle multi-module)" as Mods {
+  [cli] as M1
+  [api] as M2
+  [domain] as M3
+}
+M1 -[hidden]-> M2
+M2 -[hidden]-> M3
+
+note bottom of M1
+  Depends on domain models
+  (compileOnly / implementation)
+end note
+
+note bottom of M2
+  Exposes REST endpoints
+  Depends on domain + persistence
+end note
+
+note bottom of M3
+  Entities, DTOs, services
+  interfaces, validation
+end note
+
+@enduml
