@@ -1,28 +1,27 @@
 package com.gic.cinemas.backend.controller;
 
-import com.gic.cinemas.backend.service.BookingService;
+import com.gic.cinemas.backend.service.SeatingConfigService;
 import com.gic.cinemas.common.dto.request.SeatingConfigRequest;
-import com.gic.cinemas.common.dto.response.SeatingConfigResponse;
+import com.gic.cinemas.common.dto.response.SeatingAvailabilityResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/config")
+@RequestMapping("/api/seating-config")
 public class SeatingConfigController {
 
-  private final BookingService service;
+  private final SeatingConfigService seatingConfigService;
 
-  public SeatingConfigController(BookingService service) {
-    this.service = service;
+  public SeatingConfigController(SeatingConfigService seatingConfigService) {
+    this.seatingConfigService = seatingConfigService;
   }
 
+  /** Find or create a config with the exact values provided by the CLI. */
   @PostMapping
-  public ResponseEntity<SeatingConfigResponse> configure(@RequestBody SeatingConfigRequest req) {
-    return ResponseEntity.ok(service.setConfig(req));
-  }
-
-  @GetMapping
-  public ResponseEntity<SeatingConfigResponse> current() {
-    return service.getConfig().map(ResponseEntity::ok).orElse(ResponseEntity.noContent().build());
+  public ResponseEntity<SeatingAvailabilityResponse> findOrCreate(
+      @RequestBody SeatingConfigRequest req) {
+    SeatingAvailabilityResponse res =
+        seatingConfigService.findOrCreate(req.title(), req.rows(), req.cols());
+    return ResponseEntity.ok(res);
   }
 }
