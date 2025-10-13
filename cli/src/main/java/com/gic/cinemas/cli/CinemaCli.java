@@ -1,9 +1,9 @@
 package com.gic.cinemas.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gic.cinemas.common.dto.SeatDto;
-import com.gic.cinemas.common.dto.request.BookingRequest;
-import com.gic.cinemas.common.dto.response.BookingResponse;
+import com.gic.cinemas.common.dto.request.StartBookingRequest;
+import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.response.StartBookingResponse;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -55,7 +55,7 @@ public class CinemaCli {
       int count = Integer.parseInt(sc.nextLine().trim());
 
       // For simplicity, no seat selection yet
-      BookingRequest req = new BookingRequest(movie, count);
+      StartBookingRequest req = new StartBookingRequest(movie, 1, 1, count);
 
       String json = JSON.writeValueAsString(req);
 
@@ -69,7 +69,7 @@ public class CinemaCli {
       HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() == 200) {
-        BookingResponse booking = JSON.readValue(response.body(), BookingResponse.class);
+        StartBookingResponse booking = JSON.readValue(response.body(), StartBookingResponse.class);
         System.out.printf(
             "✅ Booking created! ID: %s | Movie: %s | Seats: %s%n",
             booking.id(), booking.movie(), formatSeats(booking.seats()));
@@ -93,7 +93,7 @@ public class CinemaCli {
       HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() == 200) {
-        BookingResponse booking = JSON.readValue(response.body(), BookingResponse.class);
+        StartBookingResponse booking = JSON.readValue(response.body(), StartBookingResponse.class);
         System.out.printf(
             "🎟  Booking ID: %s%nMovie: %s%nSeats: %s%n",
             booking.id(), booking.movie(), formatSeats(booking.seats()));
@@ -108,6 +108,7 @@ public class CinemaCli {
 
   private static String formatSeats(List<SeatDto> seats) {
     if (seats == null || seats.isEmpty()) return "(none)";
-    return String.join(", ", seats.stream().map(SeatDto::code).toList());
+    //    return String.join(", ", seats.stream().map(SeatDto::code).toList());
+    return "";
   }
 }

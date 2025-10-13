@@ -5,21 +5,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class SeatingConfigValidator {
 
-  private static final int MAX_ROWS = 26;
-  private static final int MAX_COLS = 50;
+  private static final int MAX_ROW_COUNT = 26;
+  private static final int MAX_SEATS_PER_ROW = 50;
 
-  public void validate(String title, int rows, int cols) {
-    if (title == null || title.isBlank()) {
-      throw new IllegalArgumentException("title is required");
+  public void validate(String movieTitle, int rowCount, int seatsPerRow) {
+    if (movieTitle == null || movieTitle.isBlank()) {
+      throw new IllegalArgumentException("movie title is required");
     }
-    if (rows <= 0 || cols <= 0) {
-      throw new IllegalArgumentException("rows and cols must be > 0");
+    if (rowCount <= 0 || seatsPerRow <= 0) {
+      throw new IllegalArgumentException("rowCount and seatsPerRow must be > 0");
     }
-    if (rows > MAX_ROWS) {
-      throw new IllegalArgumentException("rows must not exceed " + MAX_ROWS);
+    if (rowCount > MAX_ROW_COUNT) {
+      throw new IllegalArgumentException("rowCount must not exceed " + MAX_ROW_COUNT);
     }
-    if (cols > MAX_COLS) {
-      throw new IllegalArgumentException("cols must not exceed " + MAX_COLS);
+    if (seatsPerRow > MAX_SEATS_PER_ROW) {
+      throw new IllegalArgumentException("seatsPerRow must not exceed " + MAX_SEATS_PER_ROW);
     }
   }
 }

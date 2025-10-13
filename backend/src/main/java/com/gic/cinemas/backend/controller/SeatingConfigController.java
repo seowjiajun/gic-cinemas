@@ -3,6 +3,8 @@ package com.gic.cinemas.backend.controller;
 import com.gic.cinemas.backend.service.SeatingConfigService;
 import com.gic.cinemas.common.dto.request.SeatingConfigRequest;
 import com.gic.cinemas.common.dto.response.SeatingAvailabilityResponse;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,12 +18,12 @@ public class SeatingConfigController {
     this.seatingConfigService = seatingConfigService;
   }
 
-  /** Find or create a config with the exact values provided by the CLI. */
   @PostMapping
   public ResponseEntity<SeatingAvailabilityResponse> findOrCreate(
-      @RequestBody SeatingConfigRequest req) {
-    SeatingAvailabilityResponse res =
-        seatingConfigService.findOrCreate(req.title(), req.rows(), req.cols());
-    return ResponseEntity.ok(res);
+      @Valid @RequestBody SeatingConfigRequest request) {
+    SeatingAvailabilityResponse response =
+        seatingConfigService.findOrCreate(
+            request.movieTitle(), request.rowCount(), request.seatsPerRow());
+    return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 }

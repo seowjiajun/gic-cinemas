@@ -1,8 +1,10 @@
 package com.gic.cinemas.backend.controller;
 
 import com.gic.cinemas.backend.service.BookingService;
-import com.gic.cinemas.common.dto.request.BookingRequest;
-import com.gic.cinemas.common.dto.response.BookingResponse;
+import com.gic.cinemas.common.dto.request.ConfirmBookingRequest;
+import com.gic.cinemas.common.dto.request.StartBookingRequest;
+import com.gic.cinemas.common.dto.response.ConfirmBookingResponse;
+import com.gic.cinemas.common.dto.response.StartBookingResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,14 +19,17 @@ public class BookingController {
   }
 
   @PostMapping
-  public ResponseEntity<BookingResponse> createBooking(@RequestBody BookingRequest request) {
-    BookingResponse response = service.createBooking(request);
+  public ResponseEntity<StartBookingResponse> startBooking(
+      @RequestBody StartBookingRequest request) {
+    StartBookingResponse response =
+        service.startBooking(
+            request.movieTitle(), request.rowCount(), request.seatsPerRow(), request.seatsPerRow());
     return ResponseEntity.ok(response);
   }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<BookingResponse> getBooking(@PathVariable String id) {
-    BookingResponse response = service.getBooking(id);
+  public ResponseEntity<ConfirmBookingResponse> confirmBooking(
+      @RequestBody ConfirmBookingRequest request) {
+    ConfirmBookingResponse response = service.confirmBooking(request.confirmedSeats());
     return ResponseEntity.ok(response);
   }
 }

@@ -7,9 +7,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 public record SeatingConfigRequest(
-    @NotBlank @JsonProperty("title") String title,
-    @Min(1) @Max(26) @JsonProperty("rows") int rows,
-    @Min(1) @Max(50) @JsonProperty("cols") int cols) {
+    @NotBlank @JsonProperty("movieTitle") String movieTitle,
+    @Min(1) @Max(26) @JsonProperty("rowCount") int rowCount,
+    @Min(1) @Max(50) @JsonProperty("seatsPerRow") int seatsPerRow) {
   @JsonCreator
   public SeatingConfigRequest {}
 }
