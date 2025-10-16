@@ -1,8 +1,7 @@
 package com.gic.cinemas.common.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 
-public record SeatDto(String rowLabel, int seatNumber) {
-  @JsonCreator
-  public SeatDto {}
-}
+public record SeatDto(@NotBlank String rowLabel, @Min(1) @Max(50) int seatNumber) {}

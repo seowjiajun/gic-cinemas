@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
 
-  @Query(value = "SELECT nextval('booking_seq')", nativeQuery = true)
-  Long getNextId();
+  @Query("SELECT COALESCE(MAX(b.id), 0) FROM BookingEntity b")
+  Long findMaxId();
+
+  BookingEntity findByBookingId(String bookingId);
 }

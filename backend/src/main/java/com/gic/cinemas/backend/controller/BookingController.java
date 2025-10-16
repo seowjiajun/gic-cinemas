@@ -1,15 +1,16 @@
 package com.gic.cinemas.backend.controller;
 
 import com.gic.cinemas.backend.service.BookingService;
-import com.gic.cinemas.common.dto.request.ConfirmBookingRequest;
-import com.gic.cinemas.common.dto.request.StartBookingRequest;
-import com.gic.cinemas.common.dto.response.ConfirmBookingResponse;
-import com.gic.cinemas.common.dto.response.StartBookingResponse;
+import com.gic.cinemas.common.dto.request.ChangeSeatsRequest;
+import com.gic.cinemas.common.dto.request.ReserveSeatsRequest;
+import com.gic.cinemas.common.dto.response.BookingConfirmedResponse;
+import com.gic.cinemas.common.dto.response.CheckBookingResponse;
+import com.gic.cinemas.common.dto.response.ReserveSeatsResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/bookings")
+@RequestMapping("/api/booking")
 public class BookingController {
 
   private final BookingService service;
@@ -18,18 +19,34 @@ public class BookingController {
     this.service = service;
   }
 
-  @PostMapping
-  public ResponseEntity<StartBookingResponse> startBooking(
-      @RequestBody StartBookingRequest request) {
-    StartBookingResponse response =
-        service.startBooking(
-            request.movieTitle(), request.rowCount(), request.seatsPerRow(), request.seatsPerRow());
+  @PostMapping("/reserve")
+  public ResponseEntity<ReserveSeatsResponse> reserveDefault(
+      @RequestBody ReserveSeatsRequest request) {
+    ReserveSeatsResponse response =
+        service.reserveSeats(
+            request.movieTitle(),
+            request.rowCount(),
+            request.seatsPerRow(),
+            request.numberOfTickets());
     return ResponseEntity.ok(response);
   }
 
-  public ResponseEntity<ConfirmBookingResponse> confirmBooking(
-      @RequestBody ConfirmBookingRequest request) {
-    ConfirmBookingResponse response = service.confirmBooking(request.confirmedSeats());
+  @PostMapping("/change-booking")
+  public ResponseEntity<ReserveSeatsResponse> changeBooking(
+      @RequestBody ChangeSeatsRequest request) {
+    ReserveSeatsResponse response = service.changeBooking(request.bookingId(), request.startSeat());
+    return ResponseEntity.ok(response);
+  }
+
+  @PostMapping("/confirm/{bookingId}")
+  public ResponseEntity<BookingConfirmedResponse> confirmBooking(@PathVariable String bookingId) {
+    BookingConfirmedResponse response = service.confirmBooking(bookingId);
+    return ResponseEntity.ok(response);
+  }
+
+  @GetMapping("/check/{bookingId}")
+  public ResponseEntity<CheckBookingResponse> checkBookings(@PathVariable String bookingId) {
+    CheckBookingResponse response = service.checkBookings(bookingId);
     return ResponseEntity.ok(response);
   }
 }

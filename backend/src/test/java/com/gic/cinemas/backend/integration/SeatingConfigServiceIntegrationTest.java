@@ -3,10 +3,14 @@ package com.gic.cinemas.backend.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.gic.cinemas.backend.exception.SeatingConfigNotFoundException;
 import com.gic.cinemas.backend.repository.BookedSeatRepository;
 import com.gic.cinemas.backend.repository.SeatingConfigRepository;
+import com.gic.cinemas.backend.service.BookingService;
+import com.gic.cinemas.backend.service.SeatAllocator;
+import com.gic.cinemas.backend.service.SeatingConfigHelper;
 import com.gic.cinemas.backend.service.SeatingConfigService;
-import com.gic.cinemas.backend.service.helper.SeatingConfigHelper;
+import com.gic.cinemas.backend.validation.BookingValidator;
 import com.gic.cinemas.backend.validation.SeatingConfigValidator;
 import com.gic.cinemas.common.dto.response.SeatingAvailabilityResponse;
 import java.util.stream.Stream;
@@ -20,8 +24,16 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({SeatingConfigService.class, SeatingConfigValidator.class, SeatingConfigHelper.class})
+@Import({
+  BookingService.class,
+  BookingValidator.class,
+  SeatAllocator.class,
+  SeatingConfigService.class,
+  SeatingConfigValidator.class,
+  SeatingConfigHelper.class
+})
 class SeatingConfigServiceIntegrationTest {
+  @Autowired private BookingService bookingService;
   @Autowired private SeatingConfigService seatingConfigService;
   @Autowired private SeatingConfigRepository seatingConfigRepository;
   @Autowired private BookedSeatRepository bookedSeatRepository;
@@ -75,5 +87,44 @@ class SeatingConfigServiceIntegrationTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage(exceptionMessage);
     assertThat(seatingConfigRepository.count()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("getAvailability")
+  void testGetAvailability() {
+    String movieTitle = "Inception";
+    int rowCount = 8;
+    int seatsPerRow = 10;
+
+    seatingConfigService.findOrCreate(movieTitle, rowCount, seatsPerRow);
+    SeatingAvailabilityResponse dto =
+        seatingConfigService.getAvailability(movieTitle, rowCount, seatsPerRow);
+    assertThat(dto.availableSeatsCount()).isEqualTo((long) rowCount * seatsPerRow);
+  }
+
+  static Stream<Arguments> provideGetAvailabilityAfterReservationParams() {
+    return Stream.of(Arguments.of("Inception", 8, 10, 4), Arguments.of("Inception", 8, 10, 80));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideGetAvailabilityAfterReservationParams")
+  void testGetAvailabilityAfterReservation(
+      String movieTitle, int rowCount, int seatsPerRow, int tickets) {
+    bookingService.reserveSeats(movieTitle, rowCount, seatsPerRow, tickets);
+    SeatingAvailabilityResponse dto =
+        seatingConfigService.getAvailability(movieTitle, rowCount, seatsPerRow);
+    assertThat(dto.availableSeatsCount()).isEqualTo((long) rowCount * seatsPerRow - tickets);
+  }
+
+  @Test
+  void testGetAvailabilityThrowsSeatingConfigNotFound() {
+    String movieTitle = "Inception";
+    int rowCount = 8;
+    int seatsPerRow = 10;
+
+    assertThatThrownBy(
+            () -> seatingConfigService.getAvailability(movieTitle, rowCount, seatsPerRow))
+        .isInstanceOf(SeatingConfigNotFoundException.class)
+        .hasMessageContaining("No seating configuration found for");
   }
 }

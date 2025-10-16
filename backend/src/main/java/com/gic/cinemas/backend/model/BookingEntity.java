@@ -1,6 +1,8 @@
 package com.gic.cinemas.backend.model;
 
+import com.gic.cinemas.backend.BookingStatus;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -10,27 +12,30 @@ import lombok.Setter;
 @NoArgsConstructor
 @Entity
 @Table(name = "booking")
-@SequenceGenerator(name = "booking_seq", sequenceName = "booking_seq", allocationSize = 1)
 public class BookingEntity {
 
   @Id
-  @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "booking_seq")
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Column(nullable = false, unique = true, length = 16)
+  private String bookingId;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 16)
+  private BookingStatus status = BookingStatus.PENDING;
 
   @ManyToOne(optional = false, fetch = FetchType.LAZY)
   @JoinColumn(name = "seating_config_id", nullable = false)
   private SeatingConfigEntity seatingConfig;
 
-  @Column(name = "confirmed", nullable = false)
-  private boolean confirmed = false;
+  @Column(nullable = false)
+  private LocalDateTime reservedUntil;
 
-  public BookingEntity(SeatingConfigEntity seatingConfig) {
+  public BookingEntity(
+      String bookingId, SeatingConfigEntity seatingConfig, LocalDateTime reservedUntil) {
+    this.bookingId = bookingId;
     this.seatingConfig = seatingConfig;
-  }
-
-  // convenience code like GIC0001
-  @Transient
-  public String getBookingCode() {
-    return id == null ? null : String.format("GIC%04d", id);
+    this.reservedUntil = reservedUntil;
   }
 }

@@ -1,13 +1,11 @@
 package com.gic.cinemas.common.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 
 public record SeatingAvailabilityResponse(
-    Long seatingConfigId,
-    String movieTitle,
-    int rowCount,
-    int seatsPerRow,
-    long availableSeatsCount) {
-  @JsonCreator
-  public SeatingAvailabilityResponse {}
-}
+    @NotBlank String movieTitle,
+    @Min(1) @Max(26) int rowCount,
+    @Min(1) @Max(50) int seatsPerRow,
+    @Min(0) @Max(1300) long availableSeatsCount) {}

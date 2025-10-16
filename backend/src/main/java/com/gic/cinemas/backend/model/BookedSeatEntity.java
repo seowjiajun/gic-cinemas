@@ -12,7 +12,7 @@ import lombok.Setter;
 @Table(
     name = "booked_seat",
     uniqueConstraints =
-        @UniqueConstraint(columnNames = {"seating_config_id", "row_label", "seat_no"}))
+        @UniqueConstraint(columnNames = {"seating_config_id", "row_label", "seat_number"}))
 public class BookedSeatEntity {
 
   @Id
@@ -28,16 +28,16 @@ public class BookedSeatEntity {
   private SeatingConfigEntity seatingConfig;
 
   @Column(name = "row_label", nullable = false)
-  private int rowLabel;
+  private String rowLabel;
 
-  @Column(name = "seat_no", nullable = false)
-  private int seatNo;
+  @Column(name = "seat_number", nullable = false)
+  private int seatNumber;
 
   public BookedSeatEntity(
-      BookingEntity booking, SeatingConfigEntity seatingConfig, int rowLabel, int seatNo) {
+      BookingEntity booking, SeatingConfigEntity seatingConfig, String rowLabel, int seatNumber) {
     this.booking = booking;
     this.seatingConfig = seatingConfig;
     this.rowLabel = rowLabel;
-    this.seatNo = seatNo;
+    this.seatNumber = seatNumber;
   }
 }

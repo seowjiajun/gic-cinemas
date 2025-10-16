@@ -26,4 +26,12 @@ public class SeatingConfigController {
             request.movieTitle(), request.rowCount(), request.seatsPerRow());
     return ResponseEntity.status(HttpStatus.OK).body(response);
   }
+
+  @GetMapping
+  public ResponseEntity<SeatingAvailabilityResponse> getAvailability(
+      @RequestParam String movieTitle, @RequestParam int rowCount, @RequestParam int seatsPerRow) {
+    SeatingAvailabilityResponse response =
+        seatingConfigService.getAvailability(movieTitle, rowCount, seatsPerRow);
+    return ResponseEntity.status(HttpStatus.OK).body(response);
+  }
 }

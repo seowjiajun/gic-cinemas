@@ -16,4 +16,15 @@ public interface SeatingConfigRepository extends JpaRepository<SeatingConfigEnti
       and sc.seatsPerRow = :seatsPerRow
   """)
   Optional<Long> findIdByTitleAndLayout(String movieTitle, int rowCount, int seatsPerRow);
+
+  @Query(
+      """
+      select sc
+      from SeatingConfigEntity sc
+      where sc.movieTitle = :movieTitle
+        and sc.rowCount = :rowCount
+        and sc.seatsPerRow = :seatsPerRow
+      """)
+  Optional<SeatingConfigEntity> findByTitleAndLayout(
+      String movieTitle, int rowCount, int seatsPerRow);
 }

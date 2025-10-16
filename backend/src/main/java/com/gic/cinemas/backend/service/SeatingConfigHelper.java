@@ -1,4 +1,4 @@
-package com.gic.cinemas.backend.service.helper;
+package com.gic.cinemas.backend.service;
 
 import com.gic.cinemas.backend.model.SeatingConfigEntity;
 import com.gic.cinemas.backend.repository.SeatingConfigRepository;
