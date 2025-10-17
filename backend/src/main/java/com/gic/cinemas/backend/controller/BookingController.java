@@ -5,7 +5,7 @@ import com.gic.cinemas.common.dto.request.ChangeSeatsRequest;
 import com.gic.cinemas.common.dto.request.ReserveSeatsRequest;
 import com.gic.cinemas.common.dto.response.BookingConfirmedResponse;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
-import com.gic.cinemas.common.dto.response.ReserveSeatsResponse;
+import com.gic.cinemas.common.dto.response.ReservedSeatsResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,9 +20,9 @@ public class BookingController {
   }
 
   @PostMapping("/reserve")
-  public ResponseEntity<ReserveSeatsResponse> reserveDefault(
+  public ResponseEntity<ReservedSeatsResponse> reserveDefault(
       @RequestBody ReserveSeatsRequest request) {
-    ReserveSeatsResponse response =
+    ReservedSeatsResponse response =
         service.reserveSeats(
             request.movieTitle(),
             request.rowCount(),
@@ -32,9 +32,10 @@ public class BookingController {
   }
 
   @PostMapping("/change-booking")
-  public ResponseEntity<ReserveSeatsResponse> changeBooking(
+  public ResponseEntity<ReservedSeatsResponse> changeBooking(
       @RequestBody ChangeSeatsRequest request) {
-    ReserveSeatsResponse response = service.changeBooking(request.bookingId(), request.startSeat());
+    ReservedSeatsResponse response =
+        service.changeBooking(request.bookingId(), request.startSeat());
     return ResponseEntity.ok(response);
   }
 

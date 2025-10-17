@@ -1,9 +1,9 @@
 package com.gic.cinemas.backend.validation;
 
-import com.gic.cinemas.backend.BookingStatus;
 import com.gic.cinemas.backend.exception.*;
 import com.gic.cinemas.backend.model.BookingEntity;
 import com.gic.cinemas.backend.repository.BookingRepository;
+import com.gic.cinemas.common.dto.BookingStatus;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Component;
 

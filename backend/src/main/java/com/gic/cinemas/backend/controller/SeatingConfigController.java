@@ -19,19 +19,19 @@ public class SeatingConfigController {
   }
 
   @PostMapping
-  public ResponseEntity<SeatingAvailabilityResponse> findOrCreate(
+  public ResponseEntity<SeatingAvailabilityResponse> findOrCreateSeatingConfig(
       @Valid @RequestBody SeatingConfigRequest request) {
-    SeatingAvailabilityResponse response =
-        seatingConfigService.findOrCreate(
+    SeatingAvailabilityResponse responseBody =
+        seatingConfigService.findOrCreateSeatingConfig(
             request.movieTitle(), request.rowCount(), request.seatsPerRow());
-    return ResponseEntity.status(HttpStatus.OK).body(response);
+    return ResponseEntity.status(HttpStatus.OK).body(responseBody);
   }
 
   @GetMapping
-  public ResponseEntity<SeatingAvailabilityResponse> getAvailability(
+  public ResponseEntity<SeatingAvailabilityResponse> getSeatingAvailability(
       @RequestParam String movieTitle, @RequestParam int rowCount, @RequestParam int seatsPerRow) {
-    SeatingAvailabilityResponse response =
-        seatingConfigService.getAvailability(movieTitle, rowCount, seatsPerRow);
-    return ResponseEntity.status(HttpStatus.OK).body(response);
+    SeatingAvailabilityResponse responseBody =
+        seatingConfigService.getSeatingAvailability(movieTitle, rowCount, seatsPerRow);
+    return ResponseEntity.status(HttpStatus.OK).body(responseBody);
   }
 }

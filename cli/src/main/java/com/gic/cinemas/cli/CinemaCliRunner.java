@@ -1,8 +1,9 @@
 package com.gic.cinemas.cli;
 
+import com.gic.cinemas.cli.exception.BookingNotFoundCliException;
+import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
-import com.gic.cinemas.common.dto.response.ReserveSeatsResponse;
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.response.ReservedSeatsResponse;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
@@ -84,7 +85,7 @@ public class CinemaCliRunner {
     }
 
     // Reserve via service
-    ReserveSeatsResponse reserve =
+    ReservedSeatsResponse reserve =
         cliService.reserveSeats(
             layout.movieTitle(), layout.rowCount(), layout.seatsPerRow(), tickets);
 
@@ -94,7 +95,7 @@ public class CinemaCliRunner {
     previewChangeLoop(layout, reserve);
   }
 
-  private void previewChangeLoop(Layout layout, ReserveSeatsResponse snapshot) {
+  private void previewChangeLoop(Layout layout, ReservedSeatsResponse snapshot) {
     final String bookingId = snapshot.bookingId();
 
     while (true) {
@@ -119,7 +120,7 @@ public class CinemaCliRunner {
         SeatMapPrinter.print(
             layout.rowCount(),
             layout.seatsPerRow(),
-            snapshot.bookedSeats(),
+            snapshot.takenSeats(),
             snapshot.reservedSeats());
       } catch (Exception e) {
         System.out.println("Could not update seats. Try another position.");
@@ -148,9 +149,12 @@ public class CinemaCliRunner {
 
         System.out.println("\nBooking id: " + dto.bookingId());
         System.out.println("Selected seats:");
-        // bookedSeats = others, reservedSeats = mine
+        // takenSeats = others, reservedSeats = mine
         SeatMapPrinter.print(
             layout.rowCount(), layout.seatsPerRow(), dto.takenSeats(), dto.bookedSeats());
+      } catch (BookingNotFoundCliException e) {
+        System.out.println();
+        System.out.println("No booking found for " + bookingId + ".");
       } catch (Exception e) {
         // Service already throws with HTTP status + body; keep UX-friendly here
         System.out.println("Unable to load booking: " + e.getMessage());
@@ -225,7 +229,7 @@ public class CinemaCliRunner {
     return new SeatDto(m.group(1), Integer.parseInt(m.group(2)));
   }
 
-  private void renderBookingSnapshot(Layout layout, int tickets, ReserveSeatsResponse reserve) {
+  private void renderBookingSnapshot(Layout layout, int tickets, ReservedSeatsResponse reserve) {
     System.out.println();
     System.out.printf(
         """
@@ -239,7 +243,7 @@ public class CinemaCliRunner {
     SeatMapPrinter.print(
         layout.rowCount(),
         layout.seatsPerRow(),
-        reserve.bookedSeats(), // seats taken by others
+        reserve.takenSeats(), // seats taken by others
         reserve.reservedSeats()); // your temporary hold
   }
 

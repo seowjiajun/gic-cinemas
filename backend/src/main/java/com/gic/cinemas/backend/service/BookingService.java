@@ -1,18 +1,20 @@
 package com.gic.cinemas.backend.service;
 
-import com.gic.cinemas.backend.BookingStatus;
+import com.gic.cinemas.backend.exception.BookingNotFoundException;
 import com.gic.cinemas.backend.exception.NoAvailableSeatsException;
 import com.gic.cinemas.backend.exception.SeatJustTakenException;
+import com.gic.cinemas.backend.exception.SeatingConfigNotFoundException;
 import com.gic.cinemas.backend.model.BookedSeatEntity;
 import com.gic.cinemas.backend.model.BookingEntity;
 import com.gic.cinemas.backend.model.SeatingConfigEntity;
 import com.gic.cinemas.backend.repository.BookedSeatRepository;
 import com.gic.cinemas.backend.repository.BookingRepository;
 import com.gic.cinemas.backend.validation.BookingValidator;
+import com.gic.cinemas.common.dto.BookingStatus;
+import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.response.BookingConfirmedResponse;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
-import com.gic.cinemas.common.dto.response.ReserveSeatsResponse;
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.response.ReservedSeatsResponse;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -51,12 +53,15 @@ public class BookingService {
    * immediately to prevent conflicts; the booking expires if not confirmed.
    */
   @Transactional
-  public ReserveSeatsResponse reserveSeats(
+  public ReservedSeatsResponse reserveSeats(
       String movieTitle, int rowCount, int seatsPerRow, int numberOfTickets) {
     SeatingConfigEntity seatingConfigEntity =
-        seatingConfigHelper.findOrCreateConfig(movieTitle, rowCount, seatsPerRow);
+        seatingConfigHelper.findOrCreateSeatingConfig(movieTitle, rowCount, seatsPerRow);
     Long availableSeatsCount =
-        bookedSeatRepository.countAvailableSeatsByConfigId(seatingConfigEntity.getId());
+        bookedSeatRepository
+            .countAvailableSeatsByConfigId(seatingConfigEntity.getId())
+            .orElseThrow(
+                () -> new SeatingConfigNotFoundException(movieTitle, rowCount, seatsPerRow));
     bookingValidator.validateSeatsAvailable(availableSeatsCount);
 
     List<SeatDto> bookedSeats = bookedSeatRepository.findBookedSeats(seatingConfigEntity.getId());
@@ -80,22 +85,31 @@ public class BookingService {
       throw new SeatJustTakenException();
     }
 
-    return new ReserveSeatsResponse(booking.getBookingId(), bookedSeats, reservedSeats);
+    return new ReservedSeatsResponse(booking.getBookingId(), bookedSeats, reservedSeats);
   }
 
   @Transactional
   public BookingConfirmedResponse confirmBooking(String bookingId) {
-    BookingEntity booking = bookingRepository.findByBookingId(bookingId);
+    BookingEntity booking =
+        bookingRepository
+            .findByBookingId(bookingId)
+            .orElseThrow(() -> new BookingNotFoundException(bookingId));
+
+    String movieTitle = booking.getSeatingConfig().getMovieTitle();
     bookingValidator.validateBooking(booking, bookingId);
     booking.setStatus(BookingStatus.CONFIRMED);
     bookingRepository.save(booking);
 
-    return new BookingConfirmedResponse(bookingId);
+    return new BookingConfirmedResponse(bookingId, movieTitle, BookingStatus.CONFIRMED);
   }
 
   @Transactional
-  public ReserveSeatsResponse changeBooking(String bookingId, SeatDto startSeat) {
-    BookingEntity booking = bookingRepository.findByBookingId(bookingId);
+  public ReservedSeatsResponse changeBooking(String bookingId, SeatDto startSeat) {
+    BookingEntity booking =
+        bookingRepository
+            .findByBookingId(bookingId)
+            .orElseThrow(() -> new BookingNotFoundException(bookingId));
+
     LocalDateTime currentTime = LocalDateTime.now();
     bookingValidator.validateBooking(booking, bookingId, currentTime);
 
@@ -149,38 +163,35 @@ public class BookingService {
             .map(sc -> new SeatDto(sc.rowLabel(), sc.seatNumber()))
             .toList();
 
-    return new ReserveSeatsResponse(booking.getBookingId(), alreadyBooked, reservedSeats);
+    return new ReservedSeatsResponse(booking.getBookingId(), alreadyBooked, reservedSeats);
   }
 
   @Transactional(readOnly = true)
   public CheckBookingResponse checkBookings(String bookingId) {
-    // 0) Load & validate booking
-    BookingEntity booking = bookingRepository.findByBookingId(bookingId);
-    bookingValidator.validateExists(booking, bookingId);
+    BookingEntity booking =
+        bookingRepository
+            .findByBookingId(bookingId)
+            .orElseThrow(() -> new BookingNotFoundException(bookingId));
 
-    SeatingConfigEntity cfg = booking.getSeatingConfig();
+    SeatingConfigEntity seatingConfig = booking.getSeatingConfig();
 
-    // 1) Fetch ALL booked seats for this seating config (this booking + others)
-    List<BookedSeatEntity> allBookedForConfig =
-        bookedSeatRepository.findAllByBooking_SeatingConfig_Id(cfg.getId());
+    List<BookedSeatEntity> allBookedForSeatingConfig =
+        bookedSeatRepository.findAllByBooking_SeatingConfig_Id(seatingConfig.getId());
 
-    // 2) Partition into "mine (CONFIRMED only)" vs "others" (keep your current rule for others)
-    List<SeatDto> mySeats = new ArrayList<>();
+    List<SeatDto> seatsForBookingId = new ArrayList<>();
     List<SeatDto> otherSeats = new ArrayList<>();
 
-    for (BookedSeatEntity s : allBookedForConfig) {
-      SeatDto dto = new SeatDto(s.getRowLabel(), s.getSeatNumber());
-      if (bookingId.equals(s.getBooking().getBookingId())) {
-        if (s.getBooking().getStatus() == BookingStatus.CONFIRMED) {
-          mySeats.add(dto); // only confirmed seats for THIS booking
-        }
+    for (BookedSeatEntity bookedSeat : allBookedForSeatingConfig) {
+      SeatDto dto = new SeatDto(bookedSeat.getRowLabel(), bookedSeat.getSeatNumber());
+      if (bookingId.equals(bookedSeat.getBooking().getBookingId())
+          && bookedSeat.getBooking().getStatus() == BookingStatus.CONFIRMED) {
+        seatsForBookingId.add(dto);
       } else {
-        otherSeats.add(dto); // others (pending or confirmed) as before
+        otherSeats.add(dto);
       }
     }
 
-    // 3) Response
-    return new CheckBookingResponse(booking.getBookingId(), mySeats, otherSeats);
+    return new CheckBookingResponse(booking.getBookingId(), seatsForBookingId, otherSeats);
   }
 
   private String generateBookingId() {

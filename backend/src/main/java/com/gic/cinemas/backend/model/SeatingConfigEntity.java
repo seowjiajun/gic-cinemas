@@ -26,7 +26,6 @@ public class SeatingConfigEntity {
   @Column(name = "seats_per_row", nullable = false)
   private int seatsPerRow;
 
-  @Builder
   public SeatingConfigEntity(String movieTitle, int rowCount, int seatsPerRow) {
     this.movieTitle = movieTitle;
     this.rowCount = rowCount;

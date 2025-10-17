@@ -1,15 +1,19 @@
 package com.gic.cinemas.backend.e2e;
 
+import static com.gic.cinemas.backend.assertions.BookingConfirmedResponseAssert.assertThatBookingConfirmedResponse;
+import static com.gic.cinemas.backend.assertions.CheckBookingResponseAssert.assertThatCheckBookingResponse;
+import static com.gic.cinemas.backend.assertions.ErrorResponseAssert.assertThatErrorResponse;
+import static com.gic.cinemas.backend.assertions.ReservedSeatsResponseAssert.assertThatReservedSeatsResponse;
+import static com.gic.cinemas.backend.assertions.SeatingAvailabilityResponseAssert.assertThatSeatingAvailabilityResponse;
 import static com.gic.cinemas.backend.e2e.Http.*;
 
 import com.gic.cinemas.backend.CinemaApplication;
+import com.gic.cinemas.common.dto.BookingStatus;
+import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.request.ChangeSeatsRequest;
 import com.gic.cinemas.common.dto.request.ReserveSeatsRequest;
 import com.gic.cinemas.common.dto.request.SeatingConfigRequest;
-import com.gic.cinemas.common.dto.response.CheckBookingResponse;
-import com.gic.cinemas.common.dto.response.ReserveSeatsResponse;
-import com.gic.cinemas.common.dto.response.SeatDto;
-import com.gic.cinemas.common.dto.response.SeatingAvailabilityResponse;
+import com.gic.cinemas.common.dto.response.*;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,124 +26,109 @@ import org.springframework.http.*;
     classes = CinemaApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {"spring.profiles.active=test"})
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BookingFlowE2ETest {
 
   @LocalServerPort int port;
   @Autowired TestRestTemplate rest;
-
   String base;
+  HttpTestClient client;
 
-  @BeforeEach
-  void setUp() {
+  @BeforeAll
+  void setUp() { // non-static because of @TestInstance(PER_CLASS)
     base = "http://localhost:" + port + "/api";
+    client = new HttpTestClient(rest, base);
   }
 
   @Test
   @DisplayName("E2E: create/find config → reserve → change → confirm → check")
   void fullBookingFlow() {
-    // --- 1) Create/find seating config (POST /seating-config)
-    var createReq = new SeatingConfigRequest("Inception", 8, 10);
-    ResponseEntity<SeatingAvailabilityResponse> createResp =
-        postJson(rest, base + "/seating-config", createReq, SeatingAvailabilityResponse.class);
-
-    Assertions.assertThat(createResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-    SeatingAvailabilityResponse cfg = createResp.getBody();
-    Assertions.assertThat(cfg).isNotNull();
-    Assertions.assertThat(cfg.movieTitle()).isEqualTo("Inception");
-    Assertions.assertThat(cfg.rowCount()).isEqualTo(8);
-    Assertions.assertThat(cfg.seatsPerRow()).isEqualTo(10);
-    long totalSeats = 8L * 10L;
-    Assertions.assertThat(cfg.availableSeatsCount()).isEqualTo(totalSeats);
-
-    // --- 2) Reserve (POST /booking/reserve)
+    String movieTitle = "Inception";
+    int rowCount = 8;
+    int seatsPerRow = 10;
     int tickets = 4;
-    var reserveReq = new ReserveSeatsRequest("Inception", 8, 10, tickets);
-    ResponseEntity<ReserveSeatsResponse> reserveResp =
-        postJson(rest, base + "/booking/reserve", reserveReq, ReserveSeatsResponse.class);
 
-    Assertions.assertThat(reserveResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-    ReserveSeatsResponse reserve = reserveResp.getBody();
-    Assertions.assertThat(reserve).isNotNull();
-    Assertions.assertThat(reserve.bookingId()).isNotBlank();
-    Assertions.assertThat(reserve.reservedSeats()).hasSize(tickets);
-    // bookedSeats are those held/taken by others at that moment
-    Assertions.assertThat(reserve.bookedSeats()).isNotNull();
+    // create seating config
+    SeatingConfigRequest seatingConfigRequest =
+        new SeatingConfigRequest(movieTitle, rowCount, seatsPerRow);
+    ResponseEntity<SeatingAvailabilityResponse> createResp =
+        client.postSeatingConfigRequest(seatingConfigRequest);
+    Assertions.assertThat(createResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThatSeatingAvailabilityResponse(createResp.getBody())
+        .title(movieTitle)
+        .layout(rowCount, seatsPerRow)
+        .availableSeats(rowCount * seatsPerRow);
 
-    String bookingId = reserve.bookingId();
+    // reserve
+    ReserveSeatsRequest reserveSeatsRequest = new ReserveSeatsRequest(movieTitle, 8, 10, tickets);
+    ResponseEntity<?> reservedSeatsResponse = client.postReserveSeatsRequest(reserveSeatsRequest);
+    Assertions.assertThat(reservedSeatsResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+    ReservedSeatsResponse reserveSeats = (ReservedSeatsResponse) reservedSeatsResponse.getBody();
+    assertThatReservedSeatsResponse(reserveSeats)
+        .hasBookingId("GIC0001")
+        .hasReservedSeatCount(tickets);
 
-    // --- 3) Change seats (POST /booking/change-booking)
-    // choose a valid anchor in bounds; e.g., row B, seat 3
-    var changeReq = new ChangeSeatsRequest(bookingId, new SeatDto("B", 3));
-    ResponseEntity<ReserveSeatsResponse> changeResp =
-        postJson(rest, base + "/booking/change-booking", changeReq, ReserveSeatsResponse.class);
+    // change booking
+    SeatDto startSeat = new SeatDto("B", 3);
+    ChangeSeatsRequest changeReq = new ChangeSeatsRequest(reserveSeats.bookingId(), startSeat);
+    ResponseEntity<ReservedSeatsResponse> changeResponse =
+        client.postChangeBookingRequest(changeReq);
+    Assertions.assertThat(changeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+    ReservedSeatsResponse changedSeats = changeResponse.getBody();
+    assertThatReservedSeatsResponse(changedSeats)
+        .hasBookingId(reserveSeats.bookingId())
+        .hasReservedSeatCount(tickets);
 
-    Assertions.assertThat(changeResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-    ReserveSeatsResponse changed = changeResp.getBody();
-    Assertions.assertThat(changed).isNotNull();
-    Assertions.assertThat(changed.bookingId()).isEqualTo(bookingId);
-    Assertions.assertThat(changed.reservedSeats()).hasSize(tickets);
+    // confirm
+    ResponseEntity<BookingConfirmedResponse> confirmResp =
+        client.postConfirmBookingRequest(reserveSeats.bookingId());
+    Assertions.assertThat(confirmResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+    BookingConfirmedResponse bookingConfirmed = confirmResp.getBody();
+    assertThatBookingConfirmedResponse(bookingConfirmed)
+        .hasBookingId("GIC0001")
+        .hasMovieTitle(movieTitle)
+        .hasStatus(BookingStatus.CONFIRMED);
 
-    // --- 4) Confirm (POST /booking/confirm/{bookingId})
-    ResponseEntity<String> confirmResp = postNoBody(rest, base + "/booking/confirm/" + bookingId);
-
-    Assertions.assertThat(confirmResp.getStatusCode().is2xxSuccessful()).isTrue();
-
-    // --- 5) Check bookings (GET /booking/check/{bookingId})
+    // check
     ResponseEntity<CheckBookingResponse> checkResp =
-        get(rest, base + "/booking/check/" + bookingId, CheckBookingResponse.class);
-
+        client.getCheckBookingRequest(bookingConfirmed.bookingId());
     Assertions.assertThat(checkResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-    CheckBookingResponse check = checkResp.getBody();
-    Assertions.assertThat(check).isNotNull();
-    Assertions.assertThat(check.bookingId()).isEqualTo(bookingId);
-
-    // In your schema: reservedSeats = your seats; bookedSeats = others
-    Assertions.assertThat(check.bookedSeats()).hasSize(tickets);
-    // After confirm, your seats should appear as "mine"; others can be empty in a single-user test
-    Assertions.assertThat(check.bookedSeats()).isNotNull();
-
-    // --- Extra sanity: availability should have decreased by exactly 'tickets'
-    ResponseEntity<SeatingAvailabilityResponse> availResp =
-        get(
-            rest,
-            base + "/seating-config?movieTitle=Inception&rowCount=8&seatsPerRow=10",
-            SeatingAvailabilityResponse.class);
-    Assertions.assertThat(availResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-    long afterAvail = availResp.getBody().availableSeatsCount();
-    Assertions.assertThat(afterAvail).isEqualTo(totalSeats - tickets);
+    CheckBookingResponse checkBooking = checkResp.getBody();
+    assertThatCheckBookingResponse(checkBooking)
+        .hasBookingId("GIC0001")
+        .hasBookedSeatCount(tickets)
+        .hasNoTakenSeats();
   }
 
   @Test
   @DisplayName("E2E: returns 400 when no seats available")
   void reserveWhenNoSeatsAvailable() {
-    // Small room to exhaust quickly
-    var cfgReq = new SeatingConfigRequest("Tiny", 1, 2);
-    postJson(rest, base + "/seating-config", cfgReq, SeatingAvailabilityResponse.class);
+    // create seating config
+    SeatingConfigRequest seatingConfigRequest = new SeatingConfigRequest("Inception", 1, 2);
+    client.postSeatingConfigRequest(seatingConfigRequest);
 
-    // book both seats
-    postJson(
-        rest,
-        base + "/booking/reserve",
-        new ReserveSeatsRequest("Tiny", 1, 2, 2),
-        ReserveSeatsResponse.class);
+    // book all seats
+    ReserveSeatsRequest reserveSeatsRequest = new ReserveSeatsRequest("Inception", 1, 2, 2);
+    ReservedSeatsResponse reservedSeats =
+        client.postReserveSeatsRequest(reserveSeatsRequest).getBody();
+    client.postConfirmBookingRequest(reservedSeats.bookingId());
 
-    // try to book another → expect 400 (as per GlobalExceptionHandler mapping)
-    ResponseEntity<String> fail =
-        postJson(
-            rest,
-            base + "/booking/reserve",
-            new ReserveSeatsRequest("Tiny", 1, 2, 1),
-            String.class);
-
-    Assertions.assertThat(fail.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    Assertions.assertThat(fail.getBody()).contains("No Available Seats");
+    // book again
+    ResponseEntity<ErrorResponse> errorResponse =
+        client.postReserveSeatsRequestSafe(reserveSeatsRequest);
+    ErrorResponse error = errorResponse.getBody();
+    assertThatErrorResponse(error).hasStatus(400).hasError("No Available Seats");
   }
 
   @Test
-  @DisplayName("E2E: 404 when checking non-existent booking")
-  void checkUnknownBooking() {
-    ResponseEntity<String> resp = get(rest, base + "/booking/check/NOPE123", String.class);
-    // Adjust if your exception mapper returns 404 or 400 for not found
-    Assertions.assertThat(resp.getStatusCode().value()).isIn(404, 400);
+  @DisplayName("E2E: check non-existent booking → 404 with error body")
+  void checkNonExistentBookingReturns404() {
+    // create seating config
+    SeatingConfigRequest seatingConfigRequest = new SeatingConfigRequest("Inception", 1, 2);
+    client.postSeatingConfigRequest(seatingConfigRequest);
+
+    // send non-existent booking
+    ErrorResponse error = client.getCheckBookingRequestSafe("GIC0001").getBody();
+    assertThatErrorResponse(error).hasStatus(404).hasError("Booking Not Found");
   }
 }

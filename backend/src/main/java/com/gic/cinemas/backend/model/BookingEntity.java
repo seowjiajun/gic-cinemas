@@ -1,6 +1,6 @@
 package com.gic.cinemas.backend.model;
 
-import com.gic.cinemas.backend.BookingStatus;
+import com.gic.cinemas.common.dto.BookingStatus;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.Getter;

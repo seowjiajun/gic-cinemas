@@ -1,4 +1,4 @@
-package com.gic.cinemas.backend;
+package com.gic.cinemas.common.dto;
 
 public enum BookingStatus {
   PENDING,

@@ -2,8 +2,8 @@ package com.gic.cinemas.backend.integration;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.gic.cinemas.backend.BookingStatus;
 import com.gic.cinemas.backend.SeatMapBuilder;
+import com.gic.cinemas.backend.exception.BookingNotFoundException;
 import com.gic.cinemas.backend.exception.NoAvailableSeatsException;
 import com.gic.cinemas.backend.model.BookingEntity;
 import com.gic.cinemas.backend.repository.BookedSeatRepository;
@@ -14,10 +14,11 @@ import com.gic.cinemas.backend.service.SeatAllocator;
 import com.gic.cinemas.backend.service.SeatingConfigHelper;
 import com.gic.cinemas.backend.validation.BookingValidator;
 import com.gic.cinemas.backend.validation.SeatingConfigValidator;
+import com.gic.cinemas.common.dto.BookingStatus;
+import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.response.BookingConfirmedResponse;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
-import com.gic.cinemas.common.dto.response.ReserveSeatsResponse;
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.response.ReservedSeatsResponse;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.stream.Stream;
@@ -40,6 +41,7 @@ import org.springframework.context.annotation.Import;
   SeatingConfigHelper.class
 })
 class BookingServiceIntegrationTest {
+
   @Autowired private BookingService bookingService;
   @Autowired private BookingRepository bookingRepository;
   @Autowired private BookedSeatRepository bookedSeatRepository;
@@ -60,18 +62,20 @@ class BookingServiceIntegrationTest {
   @Transactional
   void testReserveSeatsOnEmptyRow(
       String movieTitle, int rowCount, int seatsPerRow, int numberOfTickets) {
-    ReserveSeatsResponse response =
+    ReservedSeatsResponse response =
         bookingService.reserveSeats(movieTitle, rowCount, seatsPerRow, numberOfTickets);
 
     assertThat(response.bookingId()).isEqualTo("GIC0001");
     assertThat(response.reservedSeats()).hasSize(numberOfTickets);
-    assertThat(response.bookedSeats()).isNotNull();
+    assertThat(response.takenSeats()).isNotNull();
 
-    long availableSeatsCount =
-        bookedSeatRepository.countAvailableSeatsByConfigId(
-            seatingConfigRepository
-                .findIdByTitleAndLayout(movieTitle, rowCount, seatsPerRow)
-                .orElseThrow());
+    Long availableSeatsCount =
+        bookedSeatRepository
+            .countAvailableSeatsByConfigId(
+                seatingConfigRepository
+                    .findIdByTitleAndLayout(movieTitle, rowCount, seatsPerRow)
+                    .orElseThrow())
+            .orElseThrow();
 
     assertThat(availableSeatsCount).isEqualTo((long) rowCount * seatsPerRow - numberOfTickets);
     assertThat(bookingRepository.findAll()).hasSize(1);
@@ -96,6 +100,14 @@ class BookingServiceIntegrationTest {
   }
 
   @Test
+  void checkBookingThrowsBookingNotFound() {
+    String bookingId = "GIC0001";
+    assertThatThrownBy(() -> bookingService.checkBookings(bookingId))
+        .isInstanceOf(BookingNotFoundException.class)
+        .hasMessage("Booking not found for bookingId: " + bookingId);
+  }
+
+  @Test
   @Transactional
   @DisplayName("confirmBooking marks a pending booking as CONFIRMED")
   void confirmBookingMarksPendingAsConfirmed() {
@@ -103,21 +115,23 @@ class BookingServiceIntegrationTest {
     String movieTitle = "Inception";
     int rowCount = 3, seatsPerRow = 10, numberOfTickets = 3;
 
-    ReserveSeatsResponse reserveResponse =
+    ReservedSeatsResponse reserveResponse =
         bookingService.reserveSeats(movieTitle, rowCount, seatsPerRow, numberOfTickets);
-    BookingEntity before = bookingRepository.findByBookingId(reserveResponse.bookingId());
+    BookingEntity before =
+        bookingRepository.findByBookingId(reserveResponse.bookingId()).orElseThrow();
     assertThat(before.getStatus()).isEqualTo(BookingStatus.PENDING);
 
     BookingConfirmedResponse confirmResponse =
         bookingService.confirmBooking(reserveResponse.bookingId());
-    BookingEntity after = bookingRepository.findByBookingId(confirmResponse.bookingId());
+    BookingEntity after =
+        bookingRepository.findByBookingId(confirmResponse.bookingId()).orElseThrow();
     assertThat(after.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
 
     long cfgId =
         seatingConfigRepository
             .findIdByTitleAndLayout(movieTitle, rowCount, seatsPerRow)
             .orElseThrow();
-    long available = bookedSeatRepository.countAvailableSeatsByConfigId(cfgId);
+    long available = bookedSeatRepository.countAvailableSeatsByConfigId(cfgId).orElseThrow();
     assertThat(available).isEqualTo((long) rowCount * seatsPerRow - numberOfTickets);
   }
 
@@ -130,20 +144,21 @@ class BookingServiceIntegrationTest {
     int rows = 3, perRow = 5, tickets = 4;
 
     // Check booking is pending
-    ReserveSeatsResponse reservedSeats = bookingService.reserveSeats(movie, rows, perRow, tickets);
+    ReservedSeatsResponse reservedSeats = bookingService.reserveSeats(movie, rows, perRow, tickets);
     String bookingId = reservedSeats.bookingId();
-    BookingEntity booking = bookingRepository.findByBookingId(bookingId);
+    BookingEntity booking = bookingRepository.findByBookingId(bookingId).orElseThrow();
     LocalDateTime oldReservedUntil = booking.getReservedUntil();
     assertThat(booking.getStatus()).isEqualTo(BookingStatus.PENDING);
 
     // Check available seats have reduced
     Long seatingConfigId =
         seatingConfigRepository.findIdByTitleAndLayout(movie, rows, perRow).orElseThrow();
-    long availableSeatsCount = bookedSeatRepository.countAvailableSeatsByConfigId(seatingConfigId);
+    long availableSeatsCount =
+        bookedSeatRepository.countAvailableSeatsByConfigId(seatingConfigId).orElseThrow();
     assertThat(availableSeatsCount).isEqualTo((long) rows * perRow - tickets);
 
     SeatDto startSeat = new SeatDto("B", 3);
-    ReserveSeatsResponse changed = bookingService.changeBooking(bookingId, startSeat);
+    ReservedSeatsResponse changed = bookingService.changeBooking(bookingId, startSeat);
 
     // --- Assert: same booking, seats replaced, count unchanged, hold extended ---
     assertThat(changed.bookingId()).isEqualTo(bookingId);
@@ -156,12 +171,13 @@ class BookingServiceIntegrationTest {
             new SeatDto("B", 3), new SeatDto("B", 4), new SeatDto("B", 5), new SeatDto("C", 3));
 
     // Booking still pending, and reservedUntil rolled forward
-    BookingEntity after = bookingRepository.findByBookingId(bookingId);
+    BookingEntity after = bookingRepository.findByBookingId(bookingId).orElseThrow();
     assertThat(after.getStatus()).isEqualTo(BookingStatus.PENDING);
     assertThat(after.getReservedUntil()).isAfter(oldReservedUntil);
 
     // Availability stays the same (same number of seats held, but seats were replaced)
-    long availableAfter = bookedSeatRepository.countAvailableSeatsByConfigId(seatingConfigId);
+    long availableAfter =
+        bookedSeatRepository.countAvailableSeatsByConfigId(seatingConfigId).orElseThrow();
     assertThat(availableAfter).isEqualTo((long) rows * perRow - tickets);
 
     // Ensure we didn't create a new booking row
@@ -175,7 +191,7 @@ class BookingServiceIntegrationTest {
     String movieTitle = "Inception";
     int rowCount = 3, seatsPerRow = 5, tickets = 4;
 
-    ReserveSeatsResponse reservedSeats =
+    ReservedSeatsResponse reservedSeats =
         bookingService.reserveSeats(movieTitle, rowCount, seatsPerRow, tickets);
     bookingService.confirmBooking(reservedSeats.bookingId());
     CheckBookingResponse bookings = bookingService.checkBookings(reservedSeats.bookingId());

@@ -1,9 +1,11 @@
 package com.gic.cinemas.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gic.cinemas.cli.exception.BookingNotFoundCliException;
+import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
-import com.gic.cinemas.common.dto.response.ReserveSeatsResponse;
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.response.ErrorResponse;
+import com.gic.cinemas.common.dto.response.ReservedSeatsResponse;
 import com.gic.cinemas.common.dto.response.SeatingAvailabilityResponse;
 import java.io.IOException;
 import java.net.http.HttpResponse;
@@ -37,19 +39,19 @@ public class CinemaCliService {
   }
 
   // --- 3. Reserve seats (POST) ---
-  public ReserveSeatsResponse reserveSeats(
+  public ReservedSeatsResponse reserveSeats(
       String movieTitle, int rowCount, int seatsPerRow, int tickets) throws Exception {
     HttpResponse<String> resp =
         cinemaApiClient.postReserveBooking(movieTitle, rowCount, seatsPerRow, tickets);
     validateResponse(resp, "reserve seats");
-    return parse(resp, ReserveSeatsResponse.class);
+    return parse(resp, ReservedSeatsResponse.class);
   }
 
   // --- 4. Change seat selection (POST) ---
-  public ReserveSeatsResponse changeSeats(String bookingId, SeatDto startSeat) throws Exception {
+  public ReservedSeatsResponse changeSeats(String bookingId, SeatDto startSeat) throws Exception {
     HttpResponse<String> resp = cinemaApiClient.postChangeBooking(bookingId, startSeat);
     validateResponse(resp, "change seat selection");
-    return parse(resp, ReserveSeatsResponse.class);
+    return parse(resp, ReservedSeatsResponse.class);
   }
 
   // --- 5. Confirm booking (POST) ---
@@ -58,11 +60,23 @@ public class CinemaCliService {
     validateResponse(resp, "confirm booking");
   }
 
-  // --- 6. Check bookings (GET) ---
   public CheckBookingResponse getBookings(String bookingId) throws Exception {
     HttpResponse<String> resp = cinemaApiClient.getBookingById(bookingId);
-    validateResponse(resp, "get bookings");
-    return parse(resp, CheckBookingResponse.class);
+    int status = resp.statusCode();
+
+    if (status == 200) {
+      return mapper.readValue(resp.body(), CheckBookingResponse.class);
+    }
+
+    // Parse backend error JSON body
+    ErrorResponse error = mapper.readValue(resp.body(), ErrorResponse.class);
+
+    if (status == 404 && "Booking Not Found".equals(error.error())) {
+      throw new BookingNotFoundCliException(error.message());
+    }
+
+    throw new RuntimeException(
+        "Request failed (" + status + "): " + error.error() + " - " + error.message());
   }
 
   // --- Internal helpers ---

@@ -1,6 +1,6 @@
 package com.gic.cinemas.cli;
 
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.SeatDto;
 import java.util.*;
 import java.util.List;
 

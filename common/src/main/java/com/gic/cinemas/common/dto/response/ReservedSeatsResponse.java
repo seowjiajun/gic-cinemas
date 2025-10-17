@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
-public record CheckBookingResponse(
+public record ReservedSeatsResponse(
     @NotBlank String bookingId,
-    @NotNull @Size(min = 1) List<@Valid SeatDto> bookedSeats,
-    @NotNull List<@Valid SeatDto> takenSeats) {}
+    @NotNull List<@Valid SeatDto> takenSeats,
+    @NotNull @Size(min = 1) List<@Valid SeatDto> reservedSeats) {}

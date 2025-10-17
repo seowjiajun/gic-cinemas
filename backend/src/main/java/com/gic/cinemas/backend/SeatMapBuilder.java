@@ -1,6 +1,6 @@
 package com.gic.cinemas.backend;
 
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.SeatDto;
 import java.util.BitSet;
 import java.util.List;
 

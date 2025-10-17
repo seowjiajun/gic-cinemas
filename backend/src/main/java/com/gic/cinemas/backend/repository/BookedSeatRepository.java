@@ -1,10 +1,11 @@
 package com.gic.cinemas.backend.repository;
 
-import com.gic.cinemas.backend.BookingStatus;
 import com.gic.cinemas.backend.model.BookedSeatEntity;
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.BookingStatus;
+import com.gic.cinemas.common.dto.SeatDto;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,16 +21,16 @@ public interface BookedSeatRepository extends JpaRepository<BookedSeatEntity, Lo
     WHERE sc.id = :seatingConfigId
     GROUP BY sc.rowCount, sc.seatsPerRow
   """)
-  Long countAvailableSeatsByConfigId(Long seatingConfigId);
+  Optional<Long> countAvailableSeatsByConfigId(Long seatingConfigId);
 
   @Query(
       """
-  select new com.gic.cinemas.common.dto.response.SeatDto(bs.rowLabel, bs.seatNumber)
+  select new com.gic.cinemas.common.dto.SeatDto(bs.rowLabel, bs.seatNumber)
   from BookedSeatEntity bs
   where bs.seatingConfig.id = :seatConfigId
     and bs.booking.status in (
-         com.gic.cinemas.backend.BookingStatus.PENDING,
-         com.gic.cinemas.backend.BookingStatus.CONFIRMED
+         com.gic.cinemas.common.dto.BookingStatus.PENDING,
+         com.gic.cinemas.common.dto.BookingStatus.CONFIRMED
        )
 """)
   List<SeatDto> findBookedSeats(Long seatConfigId);

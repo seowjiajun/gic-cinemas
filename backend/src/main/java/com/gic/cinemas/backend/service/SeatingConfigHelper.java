@@ -14,33 +14,29 @@ public class SeatingConfigHelper {
   private final SeatingConfigRepository seatingConfigRepository;
 
   @Transactional
-  public SeatingConfigEntity findOrCreateConfig(String movieTitle, int rowCount, int seatsPerRow) {
-    final String normalized = movieTitle.trim();
-
+  public SeatingConfigEntity findOrCreateSeatingConfig(
+      String movieTitle, int rowCount, int seatsPerRow) {
     Long seatingConfigId =
         seatingConfigRepository
-            .findIdByTitleAndLayout(normalized, rowCount, seatsPerRow)
+            .findIdByTitleAndLayout(movieTitle, rowCount, seatsPerRow)
             .orElse(null);
 
     SeatingConfigEntity seatingConfigEntity;
-
     if (seatingConfigId == null) {
+      // create seating config since not found
       try {
-        seatingConfigEntity =
-            SeatingConfigEntity.builder()
-                .movieTitle(normalized)
-                .rowCount(rowCount)
-                .seatsPerRow(seatsPerRow)
-                .build();
+        seatingConfigEntity = new SeatingConfigEntity(movieTitle, rowCount, seatsPerRow);
         seatingConfigEntity = seatingConfigRepository.saveAndFlush(seatingConfigEntity);
+        // in the case of race condition, runner-up fails to create config.
+        // runner-up will use the seating config created by winner.
       } catch (DataIntegrityViolationException e) {
-        // Handle race: re-read after concurrent insert
         Long existingId =
             seatingConfigRepository
-                .findIdByTitleAndLayout(normalized, rowCount, seatsPerRow)
+                .findIdByTitleAndLayout(movieTitle, rowCount, seatsPerRow)
                 .orElseThrow(() -> e);
         seatingConfigEntity = seatingConfigRepository.getReferenceById(existingId);
       }
+      // seating config is found
     } else {
       seatingConfigEntity = seatingConfigRepository.getReferenceById(seatingConfigId);
     }

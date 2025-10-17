@@ -3,7 +3,7 @@ package com.gic.cinemas.backend;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.gic.cinemas.backend.service.SeatAllocator;
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.SeatDto;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;

@@ -22,16 +22,18 @@ public class SeatingConfigService {
    * Then return a simple response.
    */
   @Transactional
-  public SeatingAvailabilityResponse findOrCreate(
+  public SeatingAvailabilityResponse findOrCreateSeatingConfig(
       String movieTitle, int rowCount, int seatsPerRow) {
+    final String normalizedTitle = movieTitle.trim();
+
     SeatingConfigEntity seatingConfigEntity =
-        seatingConfigHelper.findOrCreateConfig(movieTitle, rowCount, seatsPerRow);
+        seatingConfigHelper.findOrCreateSeatingConfig(normalizedTitle, rowCount, seatsPerRow);
 
     Long availableSeatsCount =
-        bookedSeatRepository.countAvailableSeatsByConfigId(seatingConfigEntity.getId());
-    if (availableSeatsCount == null) {
-      availableSeatsCount = (long) rowCount * seatsPerRow;
-    }
+        bookedSeatRepository
+            .countAvailableSeatsByConfigId(seatingConfigEntity.getId())
+            .orElseThrow(
+                () -> new SeatingConfigNotFoundException(normalizedTitle, rowCount, seatsPerRow));
 
     return new SeatingAvailabilityResponse(
         seatingConfigEntity.getMovieTitle(),
@@ -41,21 +43,26 @@ public class SeatingConfigService {
   }
 
   @Transactional(readOnly = true)
-  public SeatingAvailabilityResponse getAvailability(
+  public SeatingAvailabilityResponse getSeatingAvailability(
       String movieTitle, int rowCount, int seatsPerRow) {
-    // Try to find an existing config (do NOT create a new one)
-    SeatingConfigEntity config =
+    final String normalizedTitle = movieTitle.trim();
+
+    SeatingConfigEntity seatingConfig =
         seatingConfigRepository
             .findByTitleAndLayout(movieTitle.trim(), rowCount, seatsPerRow)
             .orElseThrow(
-                () -> new SeatingConfigNotFoundException(movieTitle, rowCount, seatsPerRow));
+                () -> new SeatingConfigNotFoundException(normalizedTitle, rowCount, seatsPerRow));
 
-    Long availableSeatsCount = bookedSeatRepository.countAvailableSeatsByConfigId(config.getId());
-    if (availableSeatsCount == null) {
-      availableSeatsCount = (long) rowCount * seatsPerRow;
-    }
+    Long availableSeatsCount =
+        bookedSeatRepository
+            .countAvailableSeatsByConfigId(seatingConfig.getId())
+            .orElseThrow(
+                () -> new SeatingConfigNotFoundException(normalizedTitle, rowCount, seatsPerRow));
 
     return new SeatingAvailabilityResponse(
-        config.getMovieTitle(), config.getRowCount(), config.getSeatsPerRow(), availableSeatsCount);
+        seatingConfig.getMovieTitle(),
+        seatingConfig.getRowCount(),
+        seatingConfig.getSeatsPerRow(),
+        availableSeatsCount);
   }
 }

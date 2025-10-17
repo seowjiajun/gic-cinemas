@@ -1,7 +1,7 @@
 package com.gic.cinemas.backend.service;
 
 import com.gic.cinemas.backend.SeatMapBuilder;
-import com.gic.cinemas.common.dto.response.SeatDto;
+import com.gic.cinemas.common.dto.SeatDto;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;

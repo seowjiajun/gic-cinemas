@@ -18,12 +18,7 @@ class SeatingConfigRepositoryTest {
   @DisplayName("findIdByTitleAndLayout returns correct ID when config exists")
   void testFindIdByTitleAndLayoutFound() {
     SeatingConfigEntity saved =
-        seatingConfigRepository.save(
-            SeatingConfigEntity.builder()
-                .movieTitle("Inception")
-                .rowCount(8)
-                .seatsPerRow(10)
-                .build());
+        seatingConfigRepository.save(new SeatingConfigEntity("Inception", 8, 10));
 
     Optional<Long> result = seatingConfigRepository.findIdByTitleAndLayout("Inception", 8, 10);
 

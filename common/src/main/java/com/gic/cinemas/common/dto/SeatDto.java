@@ -1,4 +1,4 @@
-package com.gic.cinemas.common.dto.response;
+package com.gic.cinemas.common.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

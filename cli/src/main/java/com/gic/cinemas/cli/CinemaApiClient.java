@@ -1,10 +1,10 @@
 package com.gic.cinemas.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.request.ChangeSeatsRequest;
 import com.gic.cinemas.common.dto.request.ReserveSeatsRequest;
 import com.gic.cinemas.common.dto.request.SeatingConfigRequest;
-import com.gic.cinemas.common.dto.response.SeatDto;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
