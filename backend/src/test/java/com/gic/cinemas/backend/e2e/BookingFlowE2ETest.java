@@ -5,7 +5,6 @@ import static com.gic.cinemas.backend.assertions.CheckBookingResponseAssert.asse
 import static com.gic.cinemas.backend.assertions.ErrorResponseAssert.assertThatErrorResponse;
 import static com.gic.cinemas.backend.assertions.ReservedSeatsResponseAssert.assertThatReservedSeatsResponse;
 import static com.gic.cinemas.backend.assertions.SeatingAvailabilityResponseAssert.assertThatSeatingAvailabilityResponse;
-import static com.gic.cinemas.backend.e2e.Http.*;
 
 import com.gic.cinemas.backend.CinemaApplication;
 import com.gic.cinemas.common.dto.BookingStatus;
@@ -14,8 +13,12 @@ import com.gic.cinemas.common.dto.request.ChangeSeatsRequest;
 import com.gic.cinemas.common.dto.request.ReserveSeatsRequest;
 import com.gic.cinemas.common.dto.request.SeatingConfigRequest;
 import com.gic.cinemas.common.dto.response.*;
+import java.util.stream.Stream;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -35,7 +38,7 @@ class BookingFlowE2ETest {
   HttpTestClient client;
 
   @BeforeAll
-  void setUp() { // non-static because of @TestInstance(PER_CLASS)
+  void setUp() {
     base = "http://localhost:" + port + "/api";
     client = new HttpTestClient(rest, base);
   }
@@ -130,5 +133,45 @@ class BookingFlowE2ETest {
     // send non-existent booking
     ErrorResponse error = client.getCheckBookingRequestSafe("GIC0001").getBody();
     assertThatErrorResponse(error).hasStatus(404).hasError("Booking Not Found");
+  }
+
+  @Test
+  void changeBookingNotEnoughSeats() {
+    // create seating config
+    SeatingConfigRequest seatingConfigRequest = new SeatingConfigRequest("Inception", 8, 10);
+    client.postSeatingConfigRequest(seatingConfigRequest);
+
+    // book some seats
+    ReserveSeatsRequest reserveSeatsRequest = new ReserveSeatsRequest("Inception", 8, 10, 11);
+    ReservedSeatsResponse reservedSeats =
+        client.postReserveSeatsRequest(reserveSeatsRequest).getBody();
+
+    SeatDto startSeat = new SeatDto("H", 1);
+    ChangeSeatsRequest changeSeatsRequest =
+        new ChangeSeatsRequest(reservedSeats.bookingId(), startSeat);
+    ErrorResponse error = client.postChangeBookingRequestSafe(changeSeatsRequest).getBody();
+    assertThatErrorResponse(error).hasStatus(400).hasError("No Available Seats");
+  }
+
+  private static Stream<Arguments> provideBadStartSeats() {
+    return Stream.of(Arguments.of(new SeatDto("W", 1)), Arguments.of(new SeatDto("B", 11)));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideBadStartSeats")
+  void changeBookingBadInput(SeatDto startSeat) {
+    // create seating config
+    SeatingConfigRequest seatingConfigRequest = new SeatingConfigRequest("Inception", 8, 10);
+    client.postSeatingConfigRequest(seatingConfigRequest);
+
+    // book some seats
+    ReserveSeatsRequest reserveSeatsRequest = new ReserveSeatsRequest("Inception", 8, 10, 11);
+    ReservedSeatsResponse reservedSeats =
+        client.postReserveSeatsRequest(reserveSeatsRequest).getBody();
+
+    ChangeSeatsRequest changeSeatsRequest =
+        new ChangeSeatsRequest(reservedSeats.bookingId(), startSeat);
+    ErrorResponse error = client.postChangeBookingRequestSafe(changeSeatsRequest).getBody();
+    assertThatErrorResponse(error).hasStatus(400).hasError("Invalid Start Seat");
   }
 }

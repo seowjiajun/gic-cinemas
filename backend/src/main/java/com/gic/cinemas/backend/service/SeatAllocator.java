@@ -1,6 +1,8 @@
 package com.gic.cinemas.backend.service;
 
 import com.gic.cinemas.backend.SeatMapBuilder;
+import com.gic.cinemas.backend.exception.InvalidStartSeatException;
+import com.gic.cinemas.backend.exception.NoAvailableSeatsException;
 import com.gic.cinemas.common.dto.SeatDto;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -20,27 +22,35 @@ public class SeatAllocator {
 
   public List<SeatDto> allocateDefault(
       BitSet[] seatMap, int rowCount, int seatsPerRow, int tickets) {
-    List<SeatDto> reservedSeats = new ArrayList<>(tickets);
-
+    List<SeatDto> allocatedSeats = new ArrayList<>(tickets);
     int remaining = tickets;
 
-    // A (index 0) → Z (index rowCount - 1)
+    // First pass: seats allocation (no mutation)
     for (int r = 0; r < rowCount && remaining > 0; r++) {
       BitSet row = seatMap[r];
       String rowLabel = SeatMapBuilder.toRowLabel(r, rowCount);
 
-      // Allocate seats expanding outward from the middle
       List<Integer> picks = allocateFromCenter(row, seatsPerRow, remaining);
-      if (picks.isEmpty()) continue;
-
       for (int seatNumber : picks) {
-        reservedSeats.add(new SeatDto(rowLabel, seatNumber));
-        row.set(seatNumber - 1); // mark taken (BitSet is 0-based)
+        allocatedSeats.add(new SeatDto(rowLabel, seatNumber));
+        if (allocatedSeats.size() == tickets) break;
       }
-      remaining -= picks.size();
+      remaining = tickets - allocatedSeats.size();
     }
 
-    return reservedSeats;
+    if (allocatedSeats.size() < tickets) {
+      long available = allocatedSeats.size();
+      throw new NoAvailableSeatsException(
+          String.format("Only %d seat(s) available, requested %d.", available, tickets), available);
+    }
+
+    // Second pass: commit (mutate BitSets)
+    for (SeatDto seat : allocatedSeats) {
+      int rowIndex = SeatMapBuilder.toRowIndex(seat.rowLabel(), rowCount);
+      seatMap[rowIndex].set(seat.seatNumber() - 1); // BitSet is 0-based
+    }
+
+    return allocatedSeats;
   }
 
   private List<Integer> allocateFromCenter(BitSet row, int seatsPerRow, int need) {
@@ -87,37 +97,56 @@ public class SeatAllocator {
       throw new IllegalArgumentException("startSeat must be provided");
     }
 
-    int startRow =
-        SeatMapBuilder.toRowIndex(String.valueOf(startSeat.rowLabel().charAt(0)), rowCount);
-    int startCol = startSeat.seatNumber() - 1; // DTO is 1-based
+    int startRow = SeatMapBuilder.toRowIndex(startSeat.rowLabel(), rowCount);
+    int startCol = startSeat.seatNumber() - 1; // SeatDto is 1-based
 
     if (startRow < 0 || startRow >= rowCount || startCol < 0 || startCol >= seatsPerRow) {
-      throw new IllegalArgumentException("startSeat out of bounds: " + startSeat);
+      throw new InvalidStartSeatException("startSeat out of bounds: " + startSeat);
     }
 
-    List<SeatDto> out = new ArrayList<>(tickets);
+    // -----------------------------
+    // Plan allocation (no mutation yet)
+    // -----------------------------
+    List<SeatDto> allocatedSeats = new ArrayList<>(tickets);
     int remaining = tickets;
 
-    // 1) Start row: greedy to the RIGHT (skip taken; no contiguity requirement)
+    // Start row → allocate to the right greedily
     remaining -=
-        allocateRightGreedy(seatMap, rowCount, seatsPerRow, startRow, startCol, remaining, out);
+        allocateRightGreedy(
+            seatMap, rowCount, seatsPerRow, startRow, startCol, remaining, allocatedSeats);
 
-    // 2) ONLY overflow TOWARD the SCREEN (increasing row letter): use center-out on each row
+    // Overflow rows (toward screen, i.e. increasing row index)
     for (int r = startRow + 1; r < rowCount && remaining > 0; r++) {
-      List<Integer> picks = allocateFromCenter(seatMap[r], seatsPerRow, remaining);
+      BitSet row = seatMap[r];
+      List<Integer> picks = allocateFromCenter(row, seatsPerRow, remaining);
       if (!picks.isEmpty()) {
         String rowLabel = SeatMapBuilder.toRowLabel(r, rowCount);
         for (int seatNum : picks) {
-          out.add(new SeatDto(rowLabel, seatNum));
-          seatMap[r].set(seatNum - 1); // mark taken in transient map
+          allocatedSeats.add(new SeatDto(rowLabel, seatNum));
+          if (allocatedSeats.size() == tickets) break;
         }
-        remaining -= picks.size();
+        remaining = tickets - allocatedSeats.size();
       }
     }
 
-    // Caller can decide whether partial allocation is OK:
-    // if (out.size() < tickets) throw new UnableToAllocateSeatsException(...);
-    return out;
+    // -----------------------------
+    // Validation — all seats available?
+    // -----------------------------
+    if (allocatedSeats.size() < tickets) {
+      long available = allocatedSeats.size();
+      throw new NoAvailableSeatsException(
+          String.format("Only %d seat(s) available, requested %d.", available, tickets), available);
+    }
+
+    // -----------------------------
+    // Commit (mutate BitSets)
+    // -----------------------------
+    for (SeatDto seat : allocatedSeats) {
+      int rowIndex = SeatMapBuilder.toRowIndex(seat.rowLabel(), rowCount);
+      seatMap[rowIndex].set(seat.seatNumber() - 1); // BitSet is 0-based
+    }
+
+    return allocatedSeats;
   }
 
   private int allocateRightGreedy(

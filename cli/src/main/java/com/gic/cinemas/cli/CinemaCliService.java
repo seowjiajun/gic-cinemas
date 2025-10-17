@@ -2,6 +2,9 @@ package com.gic.cinemas.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gic.cinemas.cli.exception.BookingNotFoundCliException;
+import com.gic.cinemas.cli.exception.InvalidStartSeatCliException;
+import com.gic.cinemas.cli.exception.NoAvailableSeatsCliException;
+import com.gic.cinemas.cli.exception.SeatJustTakenCliException;
 import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
 import com.gic.cinemas.common.dto.response.ErrorResponse;
@@ -20,7 +23,7 @@ public class CinemaCliService {
     this.mapper = mapper;
   }
 
-  // --- 1. Create or find a seating config (POST) ---
+  // --- Create or find a seating config (POST) ---
   public SeatingAvailabilityResponse createOrFetchConfig(
       String movieTitle, int rowCount, int seatsPerRow) throws Exception {
     HttpResponse<String> resp =
@@ -29,7 +32,7 @@ public class CinemaCliService {
     return parse(resp, SeatingAvailabilityResponse.class);
   }
 
-  // --- 2. Get current availability (GET) ---
+  // --- Get current availability (GET) ---
   public SeatingAvailabilityResponse fetchAvailability(
       String movieTitle, int rowCount, int seatsPerRow) throws Exception {
     HttpResponse<String> resp =
@@ -38,7 +41,7 @@ public class CinemaCliService {
     return parse(resp, SeatingAvailabilityResponse.class);
   }
 
-  // --- 3. Reserve seats (POST) ---
+  // --- Reserve seats (POST) ---
   public ReservedSeatsResponse reserveSeats(
       String movieTitle, int rowCount, int seatsPerRow, int tickets) throws Exception {
     HttpResponse<String> resp =
@@ -47,14 +50,36 @@ public class CinemaCliService {
     return parse(resp, ReservedSeatsResponse.class);
   }
 
-  // --- 4. Change seat selection (POST) ---
+  // --- Change seat selection (POST) ---
   public ReservedSeatsResponse changeSeats(String bookingId, SeatDto startSeat) throws Exception {
     HttpResponse<String> resp = cinemaApiClient.postChangeBooking(bookingId, startSeat);
-    validateResponse(resp, "change seat selection");
-    return parse(resp, ReservedSeatsResponse.class);
+    int status = resp.statusCode();
+
+    if (status == 200) {
+      return parse(resp, ReservedSeatsResponse.class);
+    }
+
+    ErrorResponse error = new ObjectMapper().readValue(resp.body(), ErrorResponse.class);
+
+    if (status == 400 && "No Available Seats".equals(error.error())) {
+      throw new NoAvailableSeatsCliException(error.message());
+    }
+    if (status == 400 && "Invalid Start Seat".equals(error.error())) {
+      throw new InvalidStartSeatCliException(error.message());
+    }
+    if (status == 409 && "Seat Just Taken".equals(error.error())) {
+      throw new SeatJustTakenCliException(error.message());
+    }
+    if (status == 404 && "Booking Not Found".equals(error.error())) {
+      throw new BookingNotFoundCliException(error.message());
+    }
+
+    // Fallback: generic runtime error
+    throw new RuntimeException(
+        "Request failed (" + status + "): " + error.error() + " - " + error.message());
   }
 
-  // --- 5. Confirm booking (POST) ---
+  // --- Confirm booking (POST) ---
   public void confirmBooking(String bookingId) throws Exception {
     HttpResponse<String> resp = cinemaApiClient.postConfirmBooking(bookingId);
     validateResponse(resp, "confirm booking");

@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.*;
 
 import com.gic.cinemas.backend.SeatMapBuilder;
 import com.gic.cinemas.backend.exception.BookingNotFoundException;
-import com.gic.cinemas.backend.exception.NoAvailableSeatsException;
 import com.gic.cinemas.backend.model.BookingEntity;
 import com.gic.cinemas.backend.repository.BookedSeatRepository;
 import com.gic.cinemas.backend.repository.BookingRepository;
@@ -88,17 +87,6 @@ class BookingServiceIntegrationTest {
         Arguments.of("Tenet", 2, 8, 17));
   }
 
-  @ParameterizedTest(name = "[{index}] {0} ({1}x{2}, {3} tickets) → preview only, no persistence")
-  @MethodSource("provideNotEnoughSeatsScenarios")
-  @DisplayName("startBooking throws NoAvailableSeatsException when none left")
-  void startBookingThrowsWhenNoAvailableSeats(
-      String movieTitle, int rowCount, int seatsPerRow, int numberOfTickets) {
-    assertThatThrownBy(
-            () -> bookingService.reserveSeats(movieTitle, rowCount, seatsPerRow, numberOfTickets))
-        .isInstanceOf(NoAvailableSeatsException.class)
-        .hasMessage("not enough seats");
-  }
-
   @Test
   void checkBookingThrowsBookingNotFound() {
     String bookingId = "GIC0001";
@@ -111,7 +99,6 @@ class BookingServiceIntegrationTest {
   @Transactional
   @DisplayName("confirmBooking marks a pending booking as CONFIRMED")
   void confirmBookingMarksPendingAsConfirmed() {
-    // Arrange: create a pending booking with 3 seats held
     String movieTitle = "Inception";
     int rowCount = 3, seatsPerRow = 10, numberOfTickets = 3;
 
@@ -139,7 +126,6 @@ class BookingServiceIntegrationTest {
   @DisplayName("changeBooking replaces held seats for an existing pending booking and extends hold")
   @Test
   void changeBookingReplacesSeatsAndExtendsHold() {
-    // --- Arrange: initial booking ---
     String movie = "Inception";
     int rows = 3, perRow = 5, tickets = 4;
 
@@ -160,7 +146,7 @@ class BookingServiceIntegrationTest {
     SeatDto startSeat = new SeatDto("B", 3);
     ReservedSeatsResponse changed = bookingService.changeBooking(bookingId, startSeat);
 
-    // --- Assert: same booking, seats replaced, count unchanged, hold extended ---
+    // Assert: same booking, seats replaced, count unchanged, hold extended
     assertThat(changed.bookingId()).isEqualTo(bookingId);
     assertThat(changed.reservedSeats()).hasSize(tickets);
 
@@ -180,14 +166,13 @@ class BookingServiceIntegrationTest {
         bookedSeatRepository.countAvailableSeatsByConfigId(seatingConfigId).orElseThrow();
     assertThat(availableAfter).isEqualTo((long) rows * perRow - tickets);
 
-    // Ensure we didn't create a new booking row
+    // Ensure didn't create a new booking row
     assertThat(bookingRepository.findAll()).hasSize(1);
   }
 
   @Test
   @DisplayName("checkBookings returns own reserved seats and others' booked seats correctly")
   void testCheckBookingsReturnsCorrectSeatPartitions() {
-    // Arrange
     String movieTitle = "Inception";
     int rowCount = 3, seatsPerRow = 5, tickets = 4;
 

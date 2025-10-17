@@ -4,7 +4,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
-/** Request payload from CLI → Backend when creating a booking. */
 public record ReserveSeatsRequest(
     @NotBlank String movieTitle,
     @Min(1) @Max(26) int rowCount,

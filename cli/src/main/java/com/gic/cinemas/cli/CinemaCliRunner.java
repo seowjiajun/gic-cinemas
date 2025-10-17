@@ -1,6 +1,9 @@
 package com.gic.cinemas.cli;
 
 import com.gic.cinemas.cli.exception.BookingNotFoundCliException;
+import com.gic.cinemas.cli.exception.InvalidStartSeatCliException;
+import com.gic.cinemas.cli.exception.NoAvailableSeatsCliException;
+import com.gic.cinemas.cli.exception.SeatJustTakenCliException;
 import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
 import com.gic.cinemas.common.dto.response.ReservedSeatsResponse;
@@ -9,7 +12,6 @@ import java.util.regex.Pattern;
 
 public class CinemaCliRunner {
 
-  // ==== Dependencies & State ====
   private final Scanner scanner;
   private final CinemaCliService cliService;
 
@@ -71,28 +73,38 @@ public class CinemaCliRunner {
 
   // ==== Flow: Create/Change/Confirm Booking ====
   private void handleCreateBooking(Layout layout) throws Exception {
-    Integer tickets = promptTickets(layout);
-    if (tickets == null) return; // back to main
+    while (true) {
+      Integer tickets = promptTickets(layout);
+      if (tickets == null) return; // back to main menu
 
-    // Re-check availability just before reserving
-    long available =
-        cliService
-            .fetchAvailability(layout.movieTitle(), layout.rowCount(), layout.seatsPerRow())
-            .availableSeatsCount();
-    if (available < tickets) {
-      System.out.printf("Sorry, there are only %d seats available.%n", available);
-      return;
+      // Re-check availability just before reserving
+      long available =
+          cliService
+              .fetchAvailability(layout.movieTitle(), layout.rowCount(), layout.seatsPerRow())
+              .availableSeatsCount();
+
+      if (available == 0) {
+        System.out.println("Sorry, there are no seats available.");
+        return;
+      }
+
+      if (tickets > available) {
+        System.out.println();
+        System.out.printf("Sorry, there are only %d seats available.%n", available);
+        continue;
+      }
+
+      // Reserve via service
+      ReservedSeatsResponse reserve =
+          cliService.reserveSeats(
+              layout.movieTitle(), layout.rowCount(), layout.seatsPerRow(), tickets);
+
+      renderBookingSnapshot(layout, tickets, reserve);
+
+      // Allow user to adjust selection before confirming
+      previewChangeLoop(layout, reserve);
+      break;
     }
-
-    // Reserve via service
-    ReservedSeatsResponse reserve =
-        cliService.reserveSeats(
-            layout.movieTitle(), layout.rowCount(), layout.seatsPerRow(), tickets);
-
-    renderBookingSnapshot(layout, tickets, reserve);
-
-    // Allow user to adjust selection before confirming
-    previewChangeLoop(layout, reserve);
   }
 
   private void previewChangeLoop(Layout layout, ReservedSeatsResponse snapshot) {
@@ -122,7 +134,21 @@ public class CinemaCliRunner {
             layout.seatsPerRow(),
             snapshot.takenSeats(),
             snapshot.reservedSeats());
+      } catch (SeatJustTakenCliException e) {
+        System.out.println();
+        System.out.println(
+            "The selected seat was just taken by another user. Please choose a different position.");
+      } catch (NoAvailableSeatsCliException e) {
+        System.out.println();
+        System.out.println("Not enough seats are available to complete this change.");
+      } catch (InvalidStartSeatCliException e) {
+        System.out.println();
+        System.out.println("Start seat is invalid. Please enter a valid one.");
+      } catch (BookingNotFoundCliException e) {
+        System.out.println();
+        System.out.println("The booking could not be found. Please check your booking ID.");
       } catch (Exception e) {
+        System.out.println();
         System.out.println("Could not update seats. Try another position.");
       }
     }
@@ -149,14 +175,12 @@ public class CinemaCliRunner {
 
         System.out.println("\nBooking id: " + dto.bookingId());
         System.out.println("Selected seats:");
-        // takenSeats = others, reservedSeats = mine
         SeatMapPrinter.print(
             layout.rowCount(), layout.seatsPerRow(), dto.takenSeats(), dto.bookedSeats());
       } catch (BookingNotFoundCliException e) {
         System.out.println();
         System.out.println("No booking found for " + bookingId + ".");
       } catch (Exception e) {
-        // Service already throws with HTTP status + body; keep UX-friendly here
         System.out.println("Unable to load booking: " + e.getMessage());
       }
     }

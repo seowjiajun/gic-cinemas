@@ -26,19 +26,17 @@ public final class SeatMapPrinter {
   // -------------------- layout math --------------------
 
   private static int seatAreaWidth(int seatsPerRow) {
-    // visual width of seats only (no row label area)
-    // each seat is 1 char + GAP after it (except the last one)
     return seatsPerRow + (seatsPerRow - 1) * SEAT_GAP.length();
   }
 
-  // indent for the "SCREEN" banner so it’s centered over the seat area
+  // indent for the "S C R E E N" banner so it’s centered over the seat area
   private static int screenIndent(int seatsPerRow) {
     int w = seatAreaWidth(seatsPerRow);
     int diff = w - SCREEN.length(); // positive => seats wider than screen
     return ROW_LABEL_WIDTH + Math.max(0, diff / 2);
   }
 
-  // extra indent to push the grid under a wider "SCREEN" banner
+  // extra indent to push the grid under a wider "S C R E E N" banner
   private static int gridExtraIndent(int seatsPerRow) {
     int w = seatAreaWidth(seatsPerRow);
     int diff = SCREEN.length() - w; // positive => screen wider than seats

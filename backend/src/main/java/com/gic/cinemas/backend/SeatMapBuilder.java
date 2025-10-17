@@ -1,5 +1,6 @@
 package com.gic.cinemas.backend;
 
+import com.gic.cinemas.backend.exception.InvalidStartSeatException;
 import com.gic.cinemas.common.dto.SeatDto;
 import java.util.BitSet;
 import java.util.List;
@@ -23,12 +24,12 @@ public class SeatMapBuilder {
   /** A == 0, B == 1, … */
   public static int toRowIndex(String rowLabel, int rowCount) {
     if (rowLabel == null || rowLabel.isBlank()) {
-      throw new IllegalArgumentException("Row label is blank");
+      throw new InvalidStartSeatException("Row label is blank");
     }
     char c = Character.toUpperCase(rowLabel.charAt(0));
     int idx = c - 'A';
     if (idx < 0 || idx >= rowCount) {
-      throw new IllegalArgumentException("Row label out of bounds: " + rowLabel);
+      throw new InvalidStartSeatException("Row label out of bounds: " + rowLabel);
     }
     return idx;
   }
@@ -39,21 +40,5 @@ public class SeatMapBuilder {
       throw new IllegalArgumentException("Row index out of bounds: " + rowIndex);
     }
     return String.valueOf((char) ('A' + rowIndex));
-  }
-
-  /**
-   * Optional: “A12” → SeatDto("A", 12). Supports multi-letter rows like “AA10” if you need later.
-   */
-  public static SeatDto parseSeatCode(String code) {
-    if (code == null) throw new IllegalArgumentException("Seat code is null");
-    String s = code.trim();
-    if (s.isEmpty()) throw new IllegalArgumentException("Seat code is empty");
-    var m = java.util.regex.Pattern.compile("^([A-Za-z]+)(\\d+)$").matcher(s);
-    if (!m.matches()) {
-      throw new IllegalArgumentException("Invalid seat code: '" + s + "'");
-    }
-    String row = m.group(1).toUpperCase();
-    int num = Integer.parseInt(m.group(2));
-    return new SeatDto(row, num);
   }
 }

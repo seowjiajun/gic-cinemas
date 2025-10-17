@@ -15,7 +15,6 @@ import com.gic.cinemas.common.dto.SeatDto;
 import com.gic.cinemas.common.dto.response.BookingConfirmedResponse;
 import com.gic.cinemas.common.dto.response.CheckBookingResponse;
 import com.gic.cinemas.common.dto.response.ReservedSeatsResponse;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,9 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BookingService {
-
-  private static final String BOOKING_CODE_PREFIX = "GIC";
-  private static final Duration HOLD_DURATION = Duration.ofMinutes(2);
 
   private final BookingRepository bookingRepository;
   private final BookedSeatRepository bookedSeatRepository;
@@ -116,7 +112,7 @@ public class BookingService {
     int seatsToBook = bookedSeatRepository.countByBooking_BookingId(bookingId);
     bookingValidator.validateTicketsHeld(seatsToBook);
 
-    // 1) Build seat map EXCLUDING this booking’s current holds
+    // build seat map EXCLUDING this booking’s current holds
     SeatingConfigEntity seatingConfig = booking.getSeatingConfig();
     int rowCount = seatingConfig.getRowCount();
     int seatsPerRow = seatingConfig.getSeatsPerRow();
@@ -139,7 +135,7 @@ public class BookingService {
         seatAllocator.allocateFromStartSeat(
             rowCount, seatsPerRow, seatsToBook, startSeat, takenSeatsExcludingCurrent);
 
-    // 3) Replace seats atomically (by STRING bookingId)
+    // replace seats atomically (by STRING bookingId)
     bookedSeatRepository.deleteAllByBooking_BookingId(bookingId);
     bookedSeatRepository.flush();
     try {
@@ -153,11 +149,11 @@ public class BookingService {
       throw new SeatJustTakenException();
     }
 
-    // 4) Roll the hold window forward
+    // roll the hold window forward
     booking.setReservedUntil(currentTime.plusMinutes(5));
     bookingRepository.save(booking);
 
-    // 5) Response (what others already took, plus your new held seats)
+    // response (what others already took, plus your new held seats)
     List<SeatDto> alreadyBooked =
         takenSeatsExcludingCurrent.stream()
             .map(sc -> new SeatDto(sc.rowLabel(), sc.seatNumber()))

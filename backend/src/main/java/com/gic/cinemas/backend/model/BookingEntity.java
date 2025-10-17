@@ -38,4 +38,15 @@ public class BookingEntity {
     this.seatingConfig = seatingConfig;
     this.reservedUntil = reservedUntil;
   }
+
+  public BookingEntity(
+      String bookingId,
+      SeatingConfigEntity seatingConfig,
+      LocalDateTime reservedUntil,
+      BookingStatus status) {
+    this.bookingId = bookingId;
+    this.seatingConfig = seatingConfig;
+    this.reservedUntil = reservedUntil;
+    this.status = status;
+  }
 }

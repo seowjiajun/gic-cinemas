@@ -2,10 +2,10 @@ package com.gic.cinemas.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gic.cinemas.backend.exception.BookingNotFoundException;
+import com.gic.cinemas.backend.exception.InvalidStartSeatException;
 import com.gic.cinemas.backend.exception.NoAvailableSeatsException;
 import com.gic.cinemas.backend.exception.SeatJustTakenException;
 import com.gic.cinemas.common.dto.response.ErrorResponse;
-import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +19,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   private final ObjectMapper mapper = new ObjectMapper();
-
-  @PostConstruct
-  public void init() {
-    System.out.println("✅ GlobalExceptionHandler initialized");
-  }
 
   // ---------------------------------------
   // Exception handlers
@@ -46,6 +41,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return buildJsonResponse(HttpStatus.NOT_FOUND, "Booking Not Found", e.getMessage());
   }
 
+  @ExceptionHandler(InvalidStartSeatException.class)
+  public ResponseEntity<String> handleInvalidStartSeat(
+      InvalidStartSeatException e, WebRequest request) {
+    return buildJsonResponse(HttpStatus.BAD_REQUEST, "Invalid Start Seat", e.getMessage());
+  }
+
   // ---------------------------------------
   // Utility
   // ---------------------------------------
@@ -60,11 +61,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       ErrorResponse body = new ErrorResponse(status.value(), error, message);
       String json = mapper.writeValueAsString(body);
 
-      System.out.printf("🚨 Returning %d %s → %s%n", status.value(), error, json);
-
-      return ResponseEntity.status(status)
-          .contentType(MediaType.APPLICATION_JSON)
-          .body(json); // ✅ guaranteed raw JSON string body
+      return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(json);
     } catch (Exception ex) {
       String fallback =
           String.format(

@@ -65,7 +65,6 @@ public class HttpTestClient {
     ResponseEntity<String> raw = postJson("/booking/reserve", body, String.class);
 
     if (raw.getStatusCode().is2xxSuccessful()) {
-      // You expected an error but got success — return empty body
       return ResponseEntity.ok().build();
     }
 
@@ -92,6 +91,27 @@ public class HttpTestClient {
     return postJson("/booking/change-booking", body, ReservedSeatsResponse.class);
   }
 
+  public ResponseEntity<ErrorResponse> postChangeBookingRequestSafe(ChangeSeatsRequest body) {
+    ResponseEntity<String> raw = postJson("/booking/change-booking", body, String.class);
+
+    // Success (2xx): return empty body (no error)
+    if (raw.getStatusCode().is2xxSuccessful()) {
+      return ResponseEntity.ok().build();
+    }
+
+    // Error path (4xx / 5xx): parse backend ErrorResponse
+    try {
+      ErrorResponse error = mapper.readValue(raw.getBody(), ErrorResponse.class);
+      return ResponseEntity.status(raw.getStatusCode()).body(error);
+    } catch (Exception ex) {
+      // Fallback for unexpected / malformed body
+      return ResponseEntity.status(raw.getStatusCode())
+          .body(
+              new ErrorResponse(
+                  raw.getStatusCode().value(), "Deserialization Error", ex.getMessage()));
+    }
+  }
+
   public ResponseEntity<CheckBookingResponse> getCheckBookingRequest(String bookingId) {
     return rest.exchange(
         base + "/booking/check/" + bookingId,
@@ -101,7 +121,6 @@ public class HttpTestClient {
   }
 
   public ResponseEntity<ErrorResponse> getCheckBookingRequestSafe(String bookingId) {
-    // Request the raw response as String, so we can read error JSON manually
     ResponseEntity<String> raw =
         rest.exchange(
             base + "/booking/check/" + bookingId, HttpMethod.GET, HttpEntity.EMPTY, String.class);

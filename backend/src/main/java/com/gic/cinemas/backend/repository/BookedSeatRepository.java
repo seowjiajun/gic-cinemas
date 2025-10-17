@@ -39,7 +39,7 @@ public interface BookedSeatRepository extends JpaRepository<BookedSeatEntity, Lo
   List<SeatDto> findBySeatingConfigIdAndBookingStatusIn(
       Long seatingConfigId, Collection<BookingStatus> statuses);
 
-  // Same, but exclude a specific booking (for changeBooking on existing booking)
+  // Same as above, but exclude a specific booking (for changeBooking on existing booking)
   List<SeatDto> findBySeatingConfigIdAndBookingIdNotAndBookingStatusIn(
       Long seatingConfigId, Long bookingId, Collection<BookingStatus> statuses);
 

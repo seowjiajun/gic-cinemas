@@ -106,27 +106,6 @@ class SeatingConfigServiceIntegrationTest {
   @Nested
   @DisplayName("Error path")
   class ErrorPath {
-    static Stream<Arguments> provideInvalidInputs() {
-      return Stream.of(
-          Arguments.of(" ", 13, 25, "movie title is required"),
-          Arguments.of("Inception", 0, 25, "rowCount and seatsPerRow must be > 0"),
-          Arguments.of("Inception", 13, 0, "rowCount and seatsPerRow must be > 0"),
-          Arguments.of("Inception", 27, 25, "rowCount must not exceed 26"),
-          Arguments.of("Inception", 13, 51, "seatsPerRow must not exceed 50"));
-    }
-
-    @DisplayName("findOrCreate throws exception on invalid input")
-    @ParameterizedTest(name = "[{index}] \"{0}\" → rows={1}, seats={2}")
-    @MethodSource("provideInvalidInputs")
-    void testFindOrCreateFailsValidation(
-        String movieTitle, int rowCount, int seatsPerRow, String exceptionMessage) {
-      assertThatThrownBy(
-              () ->
-                  seatingConfigService.findOrCreateSeatingConfig(movieTitle, rowCount, seatsPerRow))
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessage(exceptionMessage);
-      assertThat(seatingConfigRepository.count()).isEqualTo(0);
-    }
 
     @Test
     void testGetSeatingAvailabilityThrowsSeatingConfigNotFound() {

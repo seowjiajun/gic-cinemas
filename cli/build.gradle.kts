@@ -16,8 +16,8 @@ application {
 
 dependencies {
     implementation(project(":common"))
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.1") // JSON parsing
-    implementation("org.slf4j:slf4j-simple:2.0.13") // simple logging (optional)
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.1")
+    implementation("org.slf4j:slf4j-simple:2.0.13")
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -25,4 +25,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.named<JavaExec>("run") {
+    standardInput = System.`in`
 }
